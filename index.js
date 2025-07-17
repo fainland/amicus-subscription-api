@@ -16,6 +16,16 @@ if (!supabaseUrl || !supabaseKey) {
     process.exit(1); // Exit if critical environment variables are missing
 }
 
+// ----- TEMPORARY DEBUGGING CODE for Supabase Key (REMOVE IN PRODUCTION) -----
+console.log("Supabase URL (from env):", supabaseUrl ? "Loaded" : "Not Loaded");
+console.log("Supabase Key (from env):", supabaseKey ? "Loaded and has a value" : "Not Loaded or empty");
+if (supabaseKey) {
+    console.log("Supabase Key starts with:", supabaseKey.substring(0, 10) + "...");
+    console.log("Supabase Key ends with:", "..." + supabaseKey.slice(-10));
+    console.log("Supabase Key length:", supabaseKey.length);
+}
+// ----- END TEMPORARY DEBUGGING CODE -----
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // --- Middleware ---
@@ -39,6 +49,9 @@ app.get('/', (req, res) => {
 
 // 2. Subscription Endpoint
 app.post('/subscribe', async (req, res) => {
+    // Log the received request body for debugging
+    console.log("Received request body:", req.body);
+
     const { email, phone_number, subscription_type } = req.body;
 
     // --- Input Validation ---
@@ -68,16 +81,19 @@ app.post('/subscribe', async (req, res) => {
         insertData.is_active = true; // Default to active
 
         const { data, error } = await supabase
-            .from('subscriptions')
+            .from('subscriptions') // Target the original 'subscriptions' table
             .insert([insertData])
             .select(); // Use .select() to get back the inserted row if needed
 
         if (error) {
+            // Log the full Supabase error object for debugging
+            console.error('Full Supabase insert error object:', error);
+
             // Handle specific Supabase errors, e.g., unique constraint violation
             if (error.code === '23505') { // PostgreSQL unique violation error code
                 return res.status(409).json({ success: false, message: 'This email or phone number is already subscribed.' });
             }
-            console.error('Supabase insert error:', error);
+            // Include error.message in the response for Supabase-specific errors
             return res.status(500).json({ success: false, message: 'Failed to subscribe due to a database error.', details: error.message });
         }
 
@@ -86,7 +102,8 @@ app.post('/subscribe', async (req, res) => {
 
     } catch (err) {
         console.error('Server error during subscription:', err);
-        res.status(500).json({ success: false, message: 'An unexpected server error occurred.' });
+        // Include err.message in the response for unexpected server errors
+        res.status(500).json({ success: false, message: 'An unexpected server error occurred.', details: err.message });
     }
 });
 
